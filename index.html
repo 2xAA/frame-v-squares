@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Wibble</title>
+    <meta charset="UTF-8" />
+  </head>
+
+  <body>
+    <div id="app"></div>
+
+    <script>
+      const pipe = (...fns) => x => fns.reduce((acc, fn) => fn(acc), x);
+
+      const radians = degrees => degrees * (Math.PI / 180);
+
+      let raf;
+      const app = document.getElementById("app");
+      const canvas = document.createElement("canvas");
+      const context = canvas.getContext("2d");
+
+      canvas.style.position = "fixed";
+      canvas.style.top = 0;
+      canvas.style.left = 0;
+
+      app.appendChild(canvas);
+
+      const resize = () => {
+        canvas.width = window.innerWidth; // * window.devicePixelRatio
+        canvas.height = window.innerHeight; // * window.devicePixelRatio
+        canvas.style.width = window.innerWidth + "px";
+        canvas.style.height = window.innerHeight + "px";
+      };
+
+      window.addEventListener("resize", resize);
+      resize();
+
+      const Modules = {
+        innerCircle: {
+          meta: {
+            name: "Module 1"
+          },
+
+          draw({ canvas, context, delta }) {
+            const { width, height } = canvas;
+
+            context.fillStyle = `hsl(${delta / 20}, 100%, 50%)`;
+            context.beginPath();
+            context.arc(
+              width / 2 - Math.sin(delta / 500) * 50,
+              height / 2 + Math.cos(delta / 500) * 50,
+              10, // * window.devicePixelRatio,
+              0,
+              Math.PI * 2
+            );
+            context.fill();
+          }
+        },
+
+        outerCircle: {
+          meta: {
+            name: "Module 2"
+          },
+
+          draw({ canvas, context, delta }) {
+            const { width, height } = canvas;
+
+            context.fillStyle = `hsl(${180 + delta / 20}, 100%, 50%)`;
+            context.beginPath();
+            context.arc(
+              width / 2 - Math.sin(delta / 500) * 70,
+              height / 2 + Math.cos(delta / 500) * 70,
+              10, // * window.devicePixelRatio,
+              0,
+              Math.PI * 2
+            );
+            context.fill();
+          }
+        },
+
+        fade: {
+          meta: {
+            name: "Module 3"
+          },
+
+          draw({ canvas, context, delta }) {
+            const { width, height } = canvas;
+
+            context.fillStyle = `rgba(0, 0, 0, 0.02)`;
+            context.fillRect(0, 0, width, height);
+          }
+        },
+
+        stretch: {
+          meta: {
+            name: "Module 4"
+          },
+
+          draw({ canvas, context, delta }) {
+            const { width, height } = canvas;
+
+            const newWidth = width * 1.0028;
+            const newHeight = height * 1.0028;
+            const dWidth = newWidth - width;
+            const dHeight = newHeight - height;
+
+            context.drawImage(
+              canvas,
+              -dWidth,
+              -dHeight,
+              newWidth + dWidth,
+              newHeight + dHeight
+            );
+          }
+        },
+
+        squishy: {
+          meta: {
+            name: "Squishy"
+          },
+
+          draw({ canvas, context, delta }) {
+            const { width, height } = canvas;
+
+            context.drawImage(
+              canvas,
+              Math.cos(delta / 900) * 5 + Math.cos(delta / 100),
+              Math.sin(delta / 5000 + 5 * Math.sin(delta / 500)) * 10 -
+                Math.cos(delta / 500),
+              width + 20 * Math.sin(delta / 800),
+              height + 20 * Math.cos(delta / 600 + 2 * Math.sin(delta / 500))
+            );
+          }
+        },
+
+        squares: {
+          meta: {
+            name: "Squares"
+          },
+
+          draw({ canvas, context, delta }) {
+            const { width, height } = canvas;
+
+            const alpha = radians(2 + 8 * (Math.sin(delta / 1000) * 0.5 + 0.5));
+            const factor = 1 / (Math.sin(alpha) + Math.cos(alpha));
+            let size = Math.max(width, height); // * window.devicePixelRatio
+
+            context.translate(width / 2, height / 2);
+
+            for (let i = 0; i < 360; i++) {
+              context.fillStyle =
+                i % 2 === 0 ? "rgba(0,0,0,1)" : "rgba(255,255,255,1)";
+
+              context.fillRect(-size / 2, -size / 2, size, size);
+
+              size = size * factor;
+
+              context.rotate(alpha);
+            }
+          }
+        }
+      };
+
+      function renderer(drawContext, module) {
+        drawContext.context.save();
+        module.draw(drawContext);
+        drawContext.context.restore();
+        return drawContext;
+      }
+
+      // create render functions from modules
+      // (just wraps in an anon function to handle the return of drawContext)
+      const ModuleRenderers = Object.keys(Modules).reduce((obj, name) => {
+        obj[name] = drawContext => renderer(drawContext, Modules[name]);
+        return obj;
+      }, {});
+
+      function interrupt(drawContext) {
+        drawContext.delta = drawContext.delta / 2.1;
+        return drawContext;
+      }
+
+      function interrupt2(drawContext) {
+        drawContext.delta = drawContext.delta * 2.1;
+        return drawContext;
+      }
+
+      const draw = pipe(
+        // ModuleRenderers.squishy,
+        // ModuleRenderers.fade, // comment out for psychadelic mode
+        // ModuleRenderers.stretch,
+        ModuleRenderers.squares,
+        // ModuleRenderers.innerCircle,
+        // interrupt,
+        // ModuleRenderers.outerCircle,
+        // interrupt2
+      );
+
+      function loop(delta) {
+        raf = requestAnimationFrame(loop);
+        draw({ canvas, context, delta });
+      }
+
+      if (raf) {
+        cancelAnimationFrame(raf);
+      }
+      raf = requestAnimationFrame(loop);
+    </script>
+  </body>
+</html>
